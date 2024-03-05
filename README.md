@@ -3,9 +3,10 @@
 This script facilitates seamless integration between X-Plane 12 (XP12) aircraft datasets and XPUIPC for compatibility with Self-Loading Cargo (SLC) and other related programs. The script serves as a bridge, enabling aircraft door data transfer from XP12 to XPUIPC in real time.
 
 ## Requirements  
-- [XPPython3](https://xppython3.readthedocs.io/en/latest/)  
-- [Self-Loading Cargo](https://www.selfloadingcargo.com/)  
-- [XPUIPC](https://www.schiratti.com/xpuipc.html) 2.0.3.8  
+- [X-Plane 12](https://www.x-plane.com/)  ```v12.0.9-rc-5```
+- [XPPython3](https://xppython3.readthedocs.io/en/latest/)  ```v4.2.1```
+- [Self-Loading Cargo](https://www.selfloadingcargo.com/)  ```v1.6.3```
+- [XPUIPC](https://www.schiratti.com/xpuipc.html)  ```v2.0.3.8```  
 
 ## Installation  
 1. **Drag & Drop**: Move the contents of the ```Resources/``` folder into your X-Plane 12 directory.  
@@ -29,4 +30,4 @@ Offset    0x3367    UINT8    1    rw    $SLCDoorStatus
  - Laminar Research B737-8
  - Laminar Research MD-82
    
- - Zibo Mod B737-800X
+ - [Zibo B737-800X](https://forums.x-plane.org/index.php?/forums/forum/384-zibo-b738-800-modified/) ```v4.01```
