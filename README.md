@@ -4,7 +4,7 @@ This script facilitates seamless integration between X-Plane 12 (XP12) aircraft 
 
 ## Requirements  
 - [X-Plane 12](https://www.x-plane.com/)  ```v12.0.9-rc-5```
-- [XPPython3](https://xppython3.readthedocs.io/en/latest/)  ```v4.2.1```
+- [XPPython3](https://xppython3.readthedocs.io/en/latest/)  ```v4.2.1 for Python 3.12```
 - [Self-Loading Cargo](https://www.selfloadingcargo.com/)  ```v1.6.3```
 - [XPUIPC](https://www.schiratti.com/xpuipc.html)  ```v2.0.3.8```  
 
