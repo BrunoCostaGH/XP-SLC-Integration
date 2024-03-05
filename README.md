@@ -1,7 +1,6 @@
-# XP-SLC-Integration  
-
-## Description  
-XP-SLC-Integration is a Python script designed to bridge the gap between XP12 doors and Self Loading Cargo, enhancing the immersive experience for X-Plane users.  
+# XP-SLC-Integration
+## Description
+This script facilitates seamless integration between X-Plane 12 (XP12) aircraft datasets and XPUIPC for compatibility with Self-Loading Cargo (SLC) and other related programs. The script serves as a bridge, enabling aircraft door data transfer from XP12 to XPUIPC in real time.
 
 ## Requirements  
 - [XPPython3](https://xppython3.readthedocs.io/en/latest/)  
@@ -19,8 +18,15 @@ Offset    0x3367    UINT8    1    rw    $SLCDoorStatus
 ```
 
 > [!IMPORTANT]
-> Make sure you have 'Pilot Mode (Manual)' with 'Synchronise With Simulator' enabled in the SLC Door Management Window.
+> Ensure you have 'Pilot Mode (Manual)' with 'Synchronise With Simulator' enabled in the SLC Door Management Window.
 
 > [!NOTE]
 > Please note that the doors cannot be operated through SLC, as it solely reads from the dataset without the capability to write to it.
 > Consequently, the 'Cabin Crew Mode (Automatic)' feature does not function with this integration.
+
+## Supported Aircrafts
+ - Laminar Research A330-3
+ - Laminar Research B737-8
+ - Laminar Research MD-82
+   
+ - Zibo Mod B737-800X
