@@ -167,6 +167,7 @@ class Aircraft:
 #                                                                              #
 ################################################################################
 
+VERSION = "v1.0.1"
 DOOR_CLOSED = 0
 DOOR_OPEN = 1
 
@@ -188,25 +189,27 @@ class Utils:
             return data | mask  # Set the bit at the index to 1
 
     @staticmethod
-    def extract_aircraft_folder(aircraft_path):
+    def extract_aircraft_dir(aircraft_path):
         dir = os.path.dirname(aircraft_path)
 
         return str(os.path.basename(dir))
 
     @staticmethod
     def sim_aircraft_init():
+        PythonInterface.reset_data()
+
         _, aircraft_path = xp.getNthAircraftModel(0)
-        aircraft_folder = Utils.extract_aircraft_folder(aircraft_path)
-        if aircraft_folder in Aircraft.aircraft:
-            Aircraft.aircraft[aircraft_folder]()
+        aircraft_dir = Utils.extract_aircraft_dir(aircraft_path)
+        if aircraft_dir in Aircraft.aircraft:
+            Aircraft.aircraft[aircraft_dir]()
 
-            xp.sys_log("Loaded " + aircraft_folder + " configuration")
-
-            PythonInterface.reset_data()
-            xp.sys_log(aircraft_folder)
-
+            if Aircraft.doors_dataref:
+                xp.sys_log(aircraft_dir + " configuration loaded.")
+            else:
+                xp.sys_log(aircraft_dir + " configuration loaded, with errors.")
             return 1
-        xp.sys_log(aircraft_folder + " configuration not found")
+        xp.sys_log(aircraft_dir + " configuration was not found. " + \
+            "Ensure you're using a supported aircraft and haven't changed the original directory name.")
         return 0
 
 class PythonInterface:
@@ -263,6 +266,7 @@ class PythonInterface:
                     xp.setDatai(self.slc_doors_dataref, slc_doors_data)
                     self.slc_doors_data_cache = slc_doors_data
             else:
+                xp.sys_log("Identified an issue with the loaded configuration. Initiating reload attempt.")
                 Utils.sim_aircraft_init()
             self.flight_loop_interval = 1
         else:
@@ -310,8 +314,8 @@ class PythonInterface:
             if self.flight_loop_id:
                 xp.destroyFlightLoop(self.flight_loop_id)
         elif not self.flight_loop_id:
-                self.flight_loop_id = xp.createFlightLoop(self.flight_loop, phase=1)
-                xp.scheduleFlightLoop(self.flight_loop_id, interval=self.flight_loop_interval)
+            self.flight_loop_id = xp.createFlightLoop(self.flight_loop, phase=1)
+            xp.scheduleFlightLoop(self.flight_loop_id, interval=self.flight_loop_interval)
 
         return 1
 
@@ -330,7 +334,7 @@ class PythonInterface:
         # Messages may be custom inter-plugin messages, as defined by other plugins.
         # Return is ignored
         if (inMessage == xp.MSG_PLANE_LOADED):
-            xp.sys_log("Received MSG_PLANE_LOADED")
+            xp.sys_log("Received MSG_PLANE_LOADED.")
             if not Utils.sim_aircraft_init():
                 if self.flight_loop_id:
                     xp.destroyFlightLoop(self.flight_loop_id)
