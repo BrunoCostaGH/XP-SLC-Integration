@@ -17,7 +17,6 @@ The XP-SLC-Integration script facilitates seamless integration between X-Plane 1
 ### Supported Aircrafts  
  - Laminar Research A330-3  
  - Laminar Research B737-8  
- - Laminar Research MD-82  
    
  - [Zibomod B737-800X](https://forums.x-plane.org/index.php?/forums/forum/384-zibo-b738-800-modified/) `v4.01`  
   
