@@ -4,8 +4,8 @@
 #                                                    ##   ##   ##   ##         #
 #    By: Bruno Costa <support@bybrunocosta.com>      ##  ##    ##              #
 #                                                    ##   ##   ##              #
-#    Created: 15/03/2024 22:08:48                    ##   ##   ##   ##         #
-#    Updated: 21/03/2024 11:16:48                    #####     ####            #
+#    Created: 2024-03-15T22:08:48.801Z               ##   ##   ##   ##         #
+#    Updated: 2024-03-30T22:43:33.291Z               #####     ####            #
 #                                                                              #
 ################################################################################
 #
@@ -34,6 +34,7 @@ class B738:
     @staticmethod
     def b738X():
         Aircraft.configuration_name = "Zibomod B738"
+        Aircraft.ghd_set_name = "Boeing737-800X.set"
         Aircraft.door_open_value = 0 # Door open value
         Aircraft.door_closed_value = 2 # Door closed value
 
@@ -51,13 +52,17 @@ class B738:
 
         # Dataref containing bool, if boarding is complete
         Aircraft.pax_board_dataref = xp.findDataRef('laminar/b738/fmodpack/pax_board')
-        
-        Aircraft.jetway_distance_dataref = xp.findDataRef("laminar/B738/jetway_nearest")
 
+        # Dataref containing bool, if beacon is on
         Aircraft.beacon_dataref = xp.findDataRef('sim/cockpit/electrical/beacon_lights_on')
 
+        # Dataref containing bool, if chocks are on
         Aircraft.chocks_dataref = xp.findDataRef('laminar/B738/fms/chock_status')
+        # Dataref containing command, toggle chocks
         Aircraft.chocks_command = xp.findCommand('laminar/B738/toggle_switch/chock')
+        
+        # Dataref containing float, distance to nearest jetway
+        Aircraft.jetway_distance_dataref = xp.findDataRef("laminar/B738/jetway_nearest")
 
     supported_dir = {
         "B737-800X": b738X
@@ -71,16 +76,18 @@ class B738:
 class Aircraft:
     configuration_name = None
     doors_dataref = None
+    door_open_value = 0
+    door_closed_value = 0
+
+    ghd_set_name = None
     not_airstairs_dataref = None
     loading_dataref = None
     boarding_dataref = None
     pax_board_dataref = None
-    jetway_distance_dataref = None
     beacon_dataref = None
     chocks_dataref = None
     chocks_command = None
-    door_open_value = 0
-    door_closed_value = 0
+    jetway_distance_dataref = None
 
     supported_acf = {
         "B738": B738.dispatch
@@ -96,7 +103,7 @@ class Aircraft:
 #                                                                              #
 ################################################################################
 
-VERSION = "v1.0.0"
+VERSION = "v1.1.0"
 DOOR_CLOSED = 0
 DOOR_OPEN = 1
 MAX_RETRIES = 3
@@ -108,18 +115,83 @@ CATERING_AFT = "Catering-2"
 STAIRWAY_FWD = "Stairway_l-1"
 STAIRWAY_AFT = "Stairway_l-2"
 BUS = "Neoplan-1"
+VAN = "Van-1"
 CARGO_BELT_FWD = "Loader(B)-1"
 CARGO_BELT_AFT = "Loader(B)-2"
 BAGGAGE_FWD = "Baggage-1"
 BAGGAGE_AFT = "Baggage-2"
 
-import xp, os
+SETTING_SERVICE_DOOR_OPEN = "Services On Door Open"
+
+
+import xp, os, configparser
 
 
 class classproperty(property):
 
     def __get__(self, owner_self, owner_cls):
         return self.fget(owner_cls)
+
+
+class Config:
+    config = {}
+
+    @classmethod
+    def save(cls, config):
+        ini_file = open(cls.ini_file_path, 'w')
+        config.write(ini_file)
+        ini_file.close()
+
+    @classmethod
+    def set(cls, section, option, value):
+        if not os.path.exists(cls.ini_file_path):
+            cls.create()
+    
+        config = configparser.ConfigParser()
+
+        config.read(cls.ini_file_path)
+        sections = config.sections()
+
+        if section not in sections:
+            config.add_section(section)
+        config.set(section, option, str(value))
+        xp.sys_log("[INFO] Setting '" + option + "' to '" + str(value) + "' in configuration file.")
+        cls.save(config)
+
+    @classmethod
+    def create(cls):
+        config = configparser.ConfigParser()
+
+        xp.sys_log("[INFO] Initializing configuration file.\nPath: " + cls.ini_file_path)
+        config.add_section('Door Control')
+        config.set('Door Control', SETTING_SERVICE_DOOR_OPEN, str(False))
+        cls.save(config)
+
+    @classmethod
+    def retrieve(cls):
+        if not os.path.exists(cls.ini_file_path):
+            cls.create()
+
+        config = configparser.ConfigParser()
+
+        config.read(cls.ini_file_path)
+        sections = config.sections()
+        for section in sections:
+            options = config.options(section)
+            for option in options:
+                try:
+                    cls.config[option] = config.get(section, option)
+                except:
+                    cls.config[option] = None
+
+    @classmethod
+    def get(cls, option):
+        if not cls.config:
+            cls.retrieve()
+
+        return cls.config.get(option.lower(), None)
+    
+    ini_file_path = os.getcwd() + "/Resources/plugins/PythonPlugins/AutoGHDforZibo.ini"
 
 
 class Utils:
@@ -138,7 +210,7 @@ class Utils:
             return data | mask  # Set the bit at the index to 1
 
     @staticmethod
-    def extract_acf_dir(acf_path):
+    def extract_dir(acf_path):
         dir = os.path.dirname(acf_path)
 
         return str(os.path.basename(dir))
@@ -158,6 +230,7 @@ class FrameRateMonitor:
         if cls.flight_loop_id is None:
             cls.flight_loop_id = xp.createFlightLoop(cls.flight_loop, phase=1)
             xp.scheduleFlightLoop(cls.flight_loop_id, interval=DEFAULT_FLIGHT_LOOP_INTERVAL)
+        return 1
 
     @classmethod
     def disable(cls):
@@ -186,35 +259,112 @@ class GHD:
         return xp.getDatai(GHD.drf_control_dataref)
 
     @classmethod
+    def set_dataref_from_set(cls, index, value, z_coordinate):
+        if z_coordinate is not None:
+            if z_coordinate < 0:
+                # fwd
+                value += "-1"
+            else:
+                # aft
+                value += "-2"
+
+        if value in cls.ghd_datarefs:
+            cls.ghd_datarefs[value] = xp.findDataRef('jd/ghd/select_' + f"{index:02d}")
+        else:
+            xp.sys_log("[WARNING] Unsupported type: '" + value + "'.")
+
+    @classmethod
+    def get_set(cls):
+        ghd_path = os.path.dirname(xp.getPluginInfo(cls.plugin_id).filePath)
+        set_path = ghd_path + "/Sets/Default/" + Aircraft.ghd_set_name
+        if os.path.exists(ghd_path + "/Sets/Custom/" + Aircraft.ghd_set_name):
+            set_path = ghd_path + "/Sets/Custom/" + Aircraft.ghd_set_name
+        elif not os.path.exists(set_path):
+            xp.sys_log("[ERROR] Failed to locate a suitable configuration set for '" + Aircraft.configuration_name + "' within JarDesign's Ground Handling Deluxe (GHD).")
+            PythonInterface.handler(Menu.disable)
+            return 0
+
+        xp.sys_log("[INFO] Found a configuration set for '" + Aircraft.configuration_name + "' at '" + set_path + "'.")
+
+        index = 0
+        type_name = None
+        z_coordinates = []
+        with open(set_path, 'r') as file:
+            for line in file:
+                if not line.strip():
+                    continue
+
+                if line.startswith("01 type_name"):
+                    type_name = line.split("=")[1].strip()
+                if line.startswith("04 z_coordinate"):
+                    z_coordinates.append(float(line.split("=")[1].strip()))
+                if line.startswith("17 split_point"):
+                    split_point = int(line.split("=")[1].strip())
+                    z_coordinate = z_coordinates[split_point] if split_point < len(z_coordinates) else None
+                    cls.set_dataref_from_set(index, type_name, z_coordinate)
+                    index += 1
+                    type_name = None
+                    z_coordinates.clear()
+
+        valid_dataref_count = 0
+        for value in cls.ghd_datarefs.values():
+            if value is not None:
+                valid_dataref_count += 1
+        if valid_dataref_count == 0:
+            xp.sys_log("[ERROR] Unable to find any supported type within configuration set.")
+            PythonInterface.handler(Menu.disable)
+            return 0
+
+        xp.sys_log("[INFO] Loaded JarDesign's Ground Handling Deluxe (GHD) configuration set.")
+        return 1
+
+    @classmethod
+    def reset_data(cls):
+        for key in cls.ghd_datarefs.keys():
+            cls.ghd_datarefs[key] = None
+
+    @classmethod
     def enable(cls):
+        if not xp.isPluginEnabled(cls.plugin_id):
+            xp.sys_log("[ERROR] JarDesign's Ground Handling Deluxe (GHD) is disabled.")
+            PythonInterface.handler(Menu.disable)
+            return 0
+
+        cls.reset_data()
+
+        if not cls.get_set():
+            return 0
+
         for _, name in cls.ghd_by_door.items():
-            cls.remove(name, False)
+            cls.remove(name)
 
         xp.setDatai(GHD.drf_control_dataref, 1)
         xp.setDatai(GHD.execute_dataref, 1)
+        return 1
 
     @classmethod
     def disable(cls):
         for _, name in cls.ghd_by_door.items():
-            cls.remove(name, False)
+            cls.remove(name)
 
         xp.setDatai(GHD.drf_control_dataref, 0)
         xp.setDatai(GHD.execute_dataref, 0)
 
     @classmethod
     def select(cls, name):
+        if cls.ghd_datarefs[name] is None:
+            return
         if name in cls.ghd_dependencies:
             cls.select(cls.ghd_dependencies[name])
-        xp.sys_log("Drive up " + name)
         xp.setDatai(cls.ghd_datarefs[name], 1)
         cls.execute()
 
     @classmethod
-    def remove(cls, name, msg=True):
+    def remove(cls, name):
+        if cls.ghd_datarefs[name] is None:
+            return
         if name in cls.ghd_dependencies:
-            cls.remove(cls.ghd_dependencies[name], msg)
-        if msg:
-            xp.sys_log("Drive away " + name)
+            cls.remove(cls.ghd_dependencies[name])
         xp.setDatai(cls.ghd_datarefs[name], 0)
         cls.execute()
 
@@ -226,26 +376,18 @@ class GHD:
     plugin_id = xp.findPluginBySignature('jardesign.crew.ground.handling')
     execute_dataref = xp.findDataRef('jd/ghd/execute')
     drf_control_dataref = xp.findDataRef('jd/ghd/drfcontrol')
-    catering_fwd_dataref = xp.findDataRef('jd/ghd/select_01')
-    catering_aft_dataref = xp.findDataRef('jd/ghd/select_02')
-    stairs_fwd_dataref = xp.findDataRef('jd/ghd/select_04')
-    stairs_aft_dataref = xp.findDataRef('jd/ghd/select_03')
-    bus_dataref = xp.findDataRef('jd/ghd/select_08')
-    cargo_belt_fwd_dataref = xp.findDataRef('jd/ghd/select_10')
-    cargo_belt_aft_dataref = xp.findDataRef('jd/ghd/select_11')
-    cargo_luggage_fwd_dataref = xp.findDataRef('jd/ghd/select_16')
-    cargo_luggage_aft_dataref = xp.findDataRef('jd/ghd/select_17')
 
     ghd_datarefs = {
-        CATERING_FWD: catering_fwd_dataref,
-        CATERING_AFT: catering_aft_dataref,
-        STAIRWAY_FWD: stairs_fwd_dataref,
-        STAIRWAY_AFT: stairs_aft_dataref,
-        BUS: bus_dataref,
-        CARGO_BELT_FWD: cargo_belt_fwd_dataref,
-        CARGO_BELT_AFT: cargo_belt_aft_dataref,
-        BAGGAGE_FWD: cargo_luggage_fwd_dataref,
-        BAGGAGE_AFT: cargo_luggage_aft_dataref
+        CATERING_FWD: None,
+        CATERING_AFT: None,
+        STAIRWAY_FWD: None,
+        STAIRWAY_AFT: None,
+        BUS: None,
+        VAN: None,
+        CARGO_BELT_FWD: None,
+        CARGO_BELT_AFT: None,
+        BAGGAGE_FWD: None,
+        BAGGAGE_AFT: None
     }
     
     ghd_dependencies = {
@@ -276,6 +418,7 @@ class AcfSelector:
 
             cls.flight_loop_id = xp.createFlightLoop(cls.flight_loop, phase=1)
             xp.scheduleFlightLoop(cls.flight_loop_id, interval=DEFAULT_FLIGHT_LOOP_INTERVAL)
+        return 1
 
     @classmethod
     def disable(cls):
@@ -291,16 +434,16 @@ class AcfSelector:
     @classmethod
     def retrieve_acf(cls, acf_icao):
         _, acf_path = xp.getNthAircraftModel(0)
-        acf_dir = Utils.extract_acf_dir(acf_path)
+        acf_dir = Utils.extract_dir(acf_path)
 
-        xp.sys_log("Trying to retrieve configuration for " + acf_icao + ".")
+        xp.sys_log("[INFO] Trying to retrieve configuration for '" + acf_icao + "'.")
         is_supported_addon_acf = acf_icao in Aircraft.supported_acf and \
                                     Aircraft.supported_acf[acf_icao](acf_dir)
         if is_supported_addon_acf:
             if Aircraft.doors_dataref:
-                xp.sys_log(Aircraft.configuration_name + " configuration loaded.")
+                xp.sys_log("[INFO] '" + Aircraft.configuration_name + "' configuration loaded.")
             else:
-                xp.sys_log(Aircraft.configuration_name + " configuration loaded, with errors.")
+                xp.sys_log("[WARNING] '" + Aircraft.configuration_name + "' configuration loaded, with errors")
             return 1
         return 0
 
@@ -312,14 +455,14 @@ class AcfSelector:
         if not cls.retrieve_acf(acf_icao):
             cls.flight_loop_counter += 1
             if cls.flight_loop_counter < MAX_RETRIES:
-                xp.sys_log("Unable to retrieve " + acf_icao + " configuration. " + \
+                xp.sys_log("[WARNING] Unable to retrieve '" + acf_icao + "' configuration. " + \
                     "Will try again in 5 seconds.")
                 PythonInterface.flight_loop_interval = 5 # seconds
                 return PythonInterface.flight_loop_interval
 
-            xp.sys_log("A valid configuration was not found. " + \
+            xp.sys_log("[ERROR] A valid configuration for '" + acf_icao + "' was not found. " + \
                 "Ensure you're using a supported aircraft.")
-            Menu.disable()
+            PythonInterface.handler(Menu.disable)
         else:
             PythonInterface.flight_loop_interval = DEFAULT_FLIGHT_LOOP_INTERVAL
             PythonInterface.handler(AcfMonitor.enable)
@@ -332,7 +475,7 @@ class AcfSelector:
 
 
 class AcfMonitor:
-    service_on_door_open = False
+    service_on_door_open = Config.get(SETTING_SERVICE_DOOR_OPEN)
     loading = False
     boarding = 0
     sim_doors_data_cache = [0] * NUMBER_OF_DOORS
@@ -390,11 +533,13 @@ class AcfMonitor:
     @classmethod
     def enable(cls):
         if cls.flight_loop_id is None:
-            PythonInterface.handler(GHD.enable)
+            if not PythonInterface.handler(GHD.enable):
+                return 0
             cls.reset_data()
 
             cls.flight_loop_id = xp.createFlightLoop(cls.flight_loop, phase=1)
             xp.scheduleFlightLoop(cls.flight_loop_id, interval=DEFAULT_FLIGHT_LOOP_INTERVAL)
+        return 1
 
     @classmethod
     def disable(cls):
@@ -414,19 +559,29 @@ class AcfMonitor:
     def call_service_crew(cls, name):
         if cls.beacon_on:
             return
-        if name in {STAIRWAY_FWD, STAIRWAY_AFT, BUS}:
+        if name in {STAIRWAY_FWD, STAIRWAY_AFT, BUS, VAN}:
             if cls.near_jetway:
                 return
             if name == STAIRWAY_FWD and cls.has_builtin_stairs:
-                GHD.select(GHD.ghd_dependencies[name])
+                cls.call_service_crew(GHD.ghd_dependencies[name])
                 return
         if not cls.has_chocks:
             xp.commandOnce(Aircraft.chocks_command)
         GHD.select(name)
 
+        
+    @classmethod
+    def remove_service_crew(cls, name):
+        if name in {STAIRWAY_FWD, STAIRWAY_AFT, BUS, VAN}:
+            if cls.near_jetway:
+                return
+            if name == STAIRWAY_FWD and cls.has_builtin_stairs:
+                cls.remove_service_crew(GHD.ghd_dependencies[name])
+                return
+        GHD.remove(name)
+
     @classmethod
     def start_loading(cls):
-        xp.sys_log("Started loading!")
         cls.call_service_crew(CATERING_FWD)
         cls.call_service_crew(CATERING_AFT)
         cls.call_service_crew(CARGO_BELT_FWD)
@@ -434,17 +589,18 @@ class AcfMonitor:
 
         cls.call_service_crew(STAIRWAY_FWD)
         cls.call_service_crew(STAIRWAY_AFT)
+        cls.call_service_crew(VAN)
         if not cls.near_jetway:
-            GHD.remove(BUS)
+            cls.remove_service_crew(BUS)
         cls.loading = True
 
     @classmethod
     def start_boarding(cls):
-        xp.sys_log("Started boarding!")
         cls.loading = False
         cls.call_service_crew(STAIRWAY_FWD)
         cls.call_service_crew(STAIRWAY_AFT)
         cls.call_service_crew(BUS)
+        cls.remove_service_crew(VAN)
         cls.boarding = 1
 
     @classmethod
@@ -463,7 +619,7 @@ class AcfMonitor:
                             if door_status == Aircraft.door_open_value:
                                 cls.call_service_crew(GHD.ghd_by_door[i])
                         if door_status == Aircraft.door_closed_value:
-                            GHD.remove(GHD.ghd_by_door[i])
+                            cls.remove_service_crew(GHD.ghd_by_door[i])
 
     @classmethod
     def flight_loop_callback(cls, sinceLast, elapsedTime, counter, refCon):
@@ -480,13 +636,13 @@ class AcfMonitor:
                         if not cls.boarding and cls.started_flight_leg:
                             cls.start_boarding()
                         if cls.boarding == 1 and not cls.pax_onboard:
-                            GHD.remove(BUS)
+                            cls.remove_service_crew(BUS)
                             cls.boarding == 2
                     elif not cls.beacon_on:
                         GHD.enable()
                     PythonInterface.flight_loop_interval = -1 * FrameRateMonitor.frame_rate # Real-time
                 else:
-                    xp.sys_log("Identified an issue with the loaded configuration. " + \
+                    xp.sys_log("[WARNING] Identified an issue with the loaded configuration. " + \
                         "Initiating reload attempt.")
                     PythonInterface.handler(AcfSelector.enable)
                     PythonInterface.flight_loop_interval = 0 # seconds
@@ -503,6 +659,7 @@ class AcfMonitor:
 
     gear_on_ground_dataref = xp.findDataRef('sim/flightmodel2/gear/on_ground')
     engines_is_burning_fuel_dataref = xp.findDataRef('sim/flightmodel2/engines/engine_is_burning_fuel')
+
 
 class Menu:
     id = None
@@ -521,7 +678,10 @@ class Menu:
         xp.appendMenuItem(cls.id, ' Service On Door Open', 'service_on_door_open')
 
         xp.checkMenuItem(cls.id, 0, xp.Menu_Checked)
-        xp.checkMenuItem(cls.id, 2, xp.Menu_Unchecked)
+        if Config.get(SETTING_SERVICE_DOOR_OPEN) == "True":
+            xp.checkMenuItem(cls.id, 2, xp.Menu_Checked)
+        else:
+            xp.checkMenuItem(cls.id, 2, xp.Menu_Unchecked)
         return cls.id
 
     @classmethod
@@ -531,19 +691,24 @@ class Menu:
 
     @classmethod
     def enable(cls):
+        if cls.id is None:
+            xp.sys_log("[ERROR] Unable to create Plugin's menu.")
+            return 0
+
         if AcfSelector.acf_icao_dataref is None or \
             AcfMonitor.gear_on_ground_dataref is None or \
-            AcfMonitor.engines_is_burning_fuel_dataref is None or\
-            cls.id is None:
+            AcfMonitor.engines_is_burning_fuel_dataref is None:
+            xp.sys_log("[ERROR] Essential XP12 datarefs not found.")
             return 0
 
         if GHD.plugin_id == xp.NO_PLUGIN_ID:
-            xp.sys_log("Unable to find JARDesign's Ground Handling Deluxe")
+            xp.sys_log("[ERROR] Unable to find JarDesign's Ground Handling Deluxe (GHD)")
+            return 0
 
         for attr_name, attr_value in vars(GHD).items():
             if attr_name.endswith("_dataref") and not callable(attr_value):
                 if attr_value is None:
-                    xp.sys_log("Unable to find " + str(attr_name) + " dataref from GHD")
+                    xp.sys_log("[ERROR] Unable to find " + str(attr_name) + " dataref from JarDesign's Ground Handling Deluxe (GHD)")
                     return 0
 
         AcfSelector.enable()
@@ -562,19 +727,17 @@ class Menu:
     def callback(cls, menuRefCon, itemRefCon):
         if itemRefCon == 'enabled' and xp.checkMenuItemState(cls.id, 0) == xp.Menu_Checked:
             cls.disable()
-            xp.sys_log("Disabled")
         elif itemRefCon == 'enabled' and xp.checkMenuItemState(cls.id, 0) == xp.Menu_Unchecked:
             cls.enable()
-            xp.sys_log("Enabled")
         if itemRefCon == 'service_on_door_open' and xp.checkMenuItemState(cls.id, 2) == xp.Menu_Checked:
+            Config.set("Door Control", SETTING_SERVICE_DOOR_OPEN, False)
             AcfMonitor.service_on_door_open = False
             xp.checkMenuItem(cls.id, 2, xp.Menu_Unchecked)
-            xp.sys_log("Service On Door Open set to " + str(AcfMonitor.service_on_door_open))
         elif itemRefCon == 'service_on_door_open' and xp.checkMenuItemState(cls.id, 2) == xp.Menu_Unchecked:
+            Config.set("Door Control", SETTING_SERVICE_DOOR_OPEN, True)
             AcfMonitor.service_on_door_open = True
             AcfMonitor.reset_cache()
             xp.checkMenuItem(cls.id, 2, xp.Menu_Checked)
-            xp.sys_log("Service On Door Open set to " + str(AcfMonitor.service_on_door_open))
 
 
 class PythonInterface:
@@ -624,7 +787,6 @@ class PythonInterface:
         # Messages may be custom inter-plugin messages, as defined by other plugins.
         # Return is ignored
         if (inMessage == xp.MSG_PLANE_LOADED):
-            xp.sys_log("Received MSG_PLANE_LOADED.")
             if Menu.is_enabled:
                 AcfSelector.reload()
             else:

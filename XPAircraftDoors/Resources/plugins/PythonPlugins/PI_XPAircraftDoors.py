@@ -4,8 +4,8 @@
 #                                                    ##   ##   ##   ##         #
 #    By: Bruno Costa <support@bybrunocosta.com>      ##  ##    ##              #
 #                                                    ##   ##   ##              #
-#    Created: 03/03/2024 22:19:19                    ##   ##   ##   ##         #
-#    Updated: 22/03/2024 00:38:08                    #####     ####            #
+#    Created: 2024-03-03T22:19:19.368Z               ##   ##   ##   ##         #
+#    Updated: 2024-03-30T22:22:06.588Z               #####     ####            #
 #                                                                              #
 ################################################################################
 #
@@ -150,7 +150,7 @@ class Aircraft:
 #                                                                              #
 ################################################################################
 
-VERSION = "v1.2.0"
+VERSION = "v1.2.1"
 DOOR_CLOSED = 0
 DOOR_OPEN = 1
 MAX_RETRIES = 3
@@ -184,7 +184,7 @@ class Utils:
             return data | mask  # Set the bit at the index to 1
 
     @staticmethod
-    def extract_acf_dir(acf_path):
+    def extract_dir(acf_path):
         dir = os.path.dirname(acf_path)
 
         return str(os.path.basename(dir))
@@ -236,6 +236,7 @@ class AcfSelector:
 
             cls.flight_loop_id = xp.createFlightLoop(cls.flight_loop, phase=1)
             xp.scheduleFlightLoop(cls.flight_loop_id, interval=DEFAULT_FLIGHT_LOOP_INTERVAL)
+        return 1
 
     @classmethod
     def disable(cls):
@@ -251,18 +252,18 @@ class AcfSelector:
     @classmethod
     def retrieve_acf(cls, acf_icao):
         _, acf_path = xp.getNthAircraftModel(0)
-        acf_dir = Utils.extract_acf_dir(acf_path)
+        acf_dir = Utils.extract_dir(acf_path)
 
-        xp.sys_log("Trying to retrieve configuration for " + acf_icao + ".")
+        xp.sys_log("[INFO] Trying to retrieve configuration for '" + acf_icao + "'.")
         is_supported_laminar_acf = Utils.extract_studio(acf_path) == "Laminar Research" and \
                                     Aircraft.supported_acf["Laminar"](acf_dir, acf_icao)
         is_supported_addon_acf = acf_icao in Aircraft.supported_acf and \
                                     Aircraft.supported_acf[acf_icao](acf_dir)
         if is_supported_laminar_acf or is_supported_addon_acf:
             if Aircraft.doors_dataref:
-                xp.sys_log(Aircraft.configuration_name + " configuration loaded.")
+                xp.sys_log("[INFO] '" + Aircraft.configuration_name + "' configuration loaded.")
             else:
-                xp.sys_log(Aircraft.configuration_name + " configuration loaded, with errors.")
+                xp.sys_log("[WARNING] '" + Aircraft.configuration_name + "' configuration loaded, with errors")
             return 1
         return 0
 
@@ -274,13 +275,14 @@ class AcfSelector:
         if not cls.retrieve_acf(acf_icao):
             cls.flight_loop_counter += 1
             if cls.flight_loop_counter < MAX_RETRIES:
-                xp.sys_log("Unable to retrieve " + acf_icao + " configuration. " + \
+                xp.sys_log("[WARNING] Unable to retrieve '" + acf_icao + "' configuration. " + \
                     "Will try again in 5 seconds.")
                 PythonInterface.flight_loop_interval = 5 # seconds
                 return PythonInterface.flight_loop_interval
 
-            xp.sys_log("A valid configuration was not found. " + \
+            xp.sys_log("[ERROR] A valid configuration for '" + acf_icao + "' was not found. " + \
                 "Ensure you're using a supported aircraft.")
+            PythonInterface.handler(Menu.disable)
         else:
             PythonInterface.flight_loop_interval = DEFAULT_FLIGHT_LOOP_INTERVAL
             PythonInterface.handler(AcfMonitor.enable)
@@ -320,6 +322,7 @@ class AcfMonitor:
 
             cls.flight_loop_id = xp.createFlightLoop(cls.flight_loop, phase=1)
             xp.scheduleFlightLoop(cls.flight_loop_id, interval=DEFAULT_FLIGHT_LOOP_INTERVAL)
+        return 1
 
     @classmethod
     def disable(cls):
@@ -356,7 +359,7 @@ class AcfMonitor:
                             cls.xp_doors_data_cache = xp_doors_data
                     PythonInterface.flight_loop_interval = -1 * FrameRateMonitor.frame_rate # Real-time
                 else:
-                    xp.sys_log("Identified an issue with the loaded configuration. " + \
+                    xp.sys_log("[WARNING] Identified an issue with the loaded configuration. " + \
                         "Initiating reload attempt.")
                     PythonInterface.handler(AcfSelector.enable)
                     PythonInterface.flight_loop_interval = 0 # seconds
@@ -398,10 +401,21 @@ class Menu:
 
     @classmethod
     def enable(cls):
+        if cls.id is None:
+            xp.sys_log("[ERROR] Unable to create Plugin's menu.")
+            return 0
+
         if AcfSelector.acf_icao_dataref is None or \
             AcfMonitor.gear_on_ground_dataref is None or \
             AcfMonitor.engines_is_burning_fuel_dataref is None or\
             AcfMonitor.xp_doors_dataref is None:
+            xp.sys_log("[ERROR] Essential XP12 datarefs not found.")
+            return 0
+        
+        xpuipc_plugin_id = xp.findPluginBySignature('XPUIPC/XPWideFS.')
+
+        if xpuipc_plugin_id == xp.NO_PLUGIN_ID:
+            xp.sys_log("[ERROR] Unable to find XPUIPC.")
             return 0
 
         AcfSelector.enable()
@@ -445,7 +459,6 @@ class PythonInterface:
                     if xp_door_status == DOOR_CLOSED:
                         sim_command = xp.findCommand(Aircraft.door_commands_close[i])
                         if sim_command is None:
-                            xp.sys_log(Aircraft.door_commands_close[i] + " command was not found.")
                             self.acf_doors = Utils.set_bit_at_index(self.acf_doors, Aircraft.door_open_value, i)
                             AcfMonitor.xp_doors_data_cache = self.acf_doors
                         else:
@@ -454,8 +467,6 @@ class PythonInterface:
                     else:
                         sim_command = xp.findCommand(Aircraft.door_commands_open[i])
                         if sim_command is None or AcfMonitor.engines_running:
-                            if sim_command is None:
-                                xp.sys_log(Aircraft.door_commands_open[i] + " command was not found.")
                             self.acf_doors = Utils.set_bit_at_index(self.acf_doors, Aircraft.door_closed_value, i)
                             AcfMonitor.xp_doors_data_cache = self.acf_doors
                         else:
@@ -516,5 +527,4 @@ class PythonInterface:
         # Messages may be custom inter-plugin messages, as defined by other plugins.
         # Return is ignored
         if (inMessage == xp.MSG_PLANE_LOADED):
-            xp.sys_log("Received MSG_PLANE_LOADED.")
             AcfSelector.reload()

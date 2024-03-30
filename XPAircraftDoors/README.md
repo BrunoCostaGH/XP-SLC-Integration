@@ -2,7 +2,7 @@
   
 ## Description  
   
-The XP Aircraft Doors script facilitates seamless integration between X-Plane 12 (XP12) aircraft datasets and XPUIPC for compatibility with Self-Loading Cargo (SLC) and other related programs. Acting as a bridge, it enables real-time aircraft door data transfer from XP12 to XPUIPC.  
+The XP Aircraft Doors plugin facilitates seamless integration between X-Plane 12 (XP12) aircraft datasets and XPUIPC for compatibility with Self-Loading Cargo (SLC) and other related programs. Acting as a bridge, it enables real-time aircraft door data transfer from XP12 to XPUIPC.  
   
 ## Requirements  
   
@@ -11,7 +11,7 @@ The XP Aircraft Doors script facilitates seamless integration between X-Plane 12
 - [XPUIPC](https://www.schiratti.com/xpuipc.html)  `v2.0.3.8`  
   
 > [!NOTE]  
-> The use of outdated or mismatched versions may affect the script's functionality due to changes in datarefs.  
+> The use of outdated or mismatched versions may affect XP Aircraft Doors's functionality due to changes in datarefs.  
   
 ### Supported Aircrafts  
  - Laminar Research A330-3  
@@ -49,24 +49,24 @@ Offset    0x3367    UINT8    1    rw    $XPTKDoorStatus
 ## Features  
   
 **Reduced Loop Overhead for Increased Performance:**
-   Enhance performance by optimizing loops during flight or while engines are running. This optimization ensures a smoother gameplay experience without sacrificing realism.  
+   This plugin optimizes loops during flight or while engines are running, resulting in enhanced performance. It ensures a smoother gaming experience without sacrificing realism.  
   
 > [!NOTE]  
 > A slight delay might occur after the termination of these phases.  
   
 **Multi-Stage Aircraft Detection:**
-   Integrate an FPS monitor to provide real-time door monitoring.  
+   This plugin includes an integrated FPS monitor that provides real-time door monitoring.  
   
 **Aircraft Detection via Multiple Parameters:**
-   Implement system to detect aircraft using various parameters such as aircraft script, directory, and ICAO code. This comprehensive detection system ensures accurate identification of aircraft.  
+   This plugin uses a comprehensive detection system to detect aircraft using parameters such as aircraft plugin, directory, and ICAO code. It ensures accurate identification of aircraft.  
   
 **Interactive Door Handling:**
-   Enable users to interact with aircraft doors through the aircraft's system or manually edit datarefs for door manipulation.  
+   This plugin allows users to interact with aircraft doors through the aircraft's system or manually edit datarefs for door manipulation.  
   
-**Menu:**  
-   Enable users to interact with the script through the menu system, granting control over script activation and deactivation with ease.  
+**Menu:**
+   This plugin offers a plugin menu that enables users to control activation, and deactivation effortlessly.  
   
 ## FAQ  
   
 **Q**: Why is there a slight delay sometimes when I open a door in the Zibomod B737-800X?  
-**A**: The dataref used to monitor the doors on the Zibomod B737-800X is not a simple open or closed status. When the door is in motion, the dataref holds a value that indicates whether the door is in motion or not. This may prevent the script to detect the door movement accurately. At the latest, the script will update the value when the door has completed its motion.  
+**A**: The dataref used to monitor the doors on the Zibomod B737-800X is not a simple open or closed status. When the door is in motion, the dataref holds a value that indicates whether the door is in motion or not. This may prevent the plugin to detect the door movement accurately. At the latest, the plugin will update the value when the door has completed its motion.  
