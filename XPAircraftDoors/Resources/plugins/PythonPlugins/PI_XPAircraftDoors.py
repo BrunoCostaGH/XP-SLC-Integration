@@ -5,7 +5,7 @@
 #    By: Bruno Costa <support@bybrunocosta.com>      ##  ##    ##              #
 #                                                    ##   ##   ##              #
 #    Created: 2024-03-03T22:19:19.368Z               ##   ##   ##   ##         #
-#    Updated: 2024-03-30T22:22:06.588Z               #####     ####            #
+#    Updated: 2024-05-12T14:41:47.080Z               #####     ####            #
 #                                                                              #
 ################################################################################
 #
@@ -150,7 +150,7 @@ class Aircraft:
 #                                                                              #
 ################################################################################
 
-VERSION = "v1.2.1"
+VERSION = "v1.2.2"
 DOOR_CLOSED = 0
 DOOR_OPEN = 1
 MAX_RETRIES = 3
@@ -204,6 +204,7 @@ class FrameRateMonitor:
         if cls.flight_loop_id is None:
             cls.flight_loop_id = xp.createFlightLoop(cls.flight_loop, phase=1)
             xp.scheduleFlightLoop(cls.flight_loop_id, interval=DEFAULT_FLIGHT_LOOP_INTERVAL)
+        return 1
 
     @classmethod
     def disable(cls):
@@ -356,8 +357,8 @@ class AcfMonitor:
                                     cls.sim_doors_data_cache[i] = door_status
                                     xp_doors_data = Utils.set_bit_at_index(xp_doors_data, door_status, i)
                                     xp.setDatai(cls.xp_doors_dataref, xp_doors_data)
-                            cls.xp_doors_data_cache = xp_doors_data
-                    PythonInterface.flight_loop_interval = -1 * FrameRateMonitor.frame_rate # Real-time
+                                    cls.xp_doors_data_cache = xp_doors_data
+                    PythonInterface.flight_loop_interval = -1 * FrameRateMonitor.frame_rate / 2 # 2x Real-time
                 else:
                     xp.sys_log("[WARNING] Identified an issue with the loaded configuration. " + \
                         "Initiating reload attempt.")

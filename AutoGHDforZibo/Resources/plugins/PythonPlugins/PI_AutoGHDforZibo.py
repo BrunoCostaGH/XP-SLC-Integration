@@ -5,7 +5,7 @@
 #    By: Bruno Costa <support@bybrunocosta.com>      ##  ##    ##              #
 #                                                    ##   ##   ##              #
 #    Created: 2024-03-15T22:08:48.801Z               ##   ##   ##   ##         #
-#    Updated: 2024-03-30T22:43:33.291Z               #####     ####            #
+#    Updated: 2024-05-12T14:52:20.060Z               #####     ####            #
 #                                                                              #
 ################################################################################
 #
@@ -37,6 +37,9 @@ class B738:
         Aircraft.ghd_set_name = "Boeing737-800X.set"
         Aircraft.door_open_value = 0 # Door open value
         Aircraft.door_closed_value = 2 # Door closed value
+
+        # Dataref containing int representing airside services state
+        Aircraft.auto_flight = xp.findDataRef('laminar/B738/tab/auto_flight')
 
         # Dataref containing int array with door statuses
         Aircraft.doors_dataref = xp.findDataRef('laminar/B738/doors/status')
@@ -80,6 +83,7 @@ class Aircraft:
     door_closed_value = 0
 
     ghd_set_name = None
+    auto_flight = None
     not_airstairs_dataref = None
     loading_dataref = None
     boarding_dataref = None
@@ -103,7 +107,7 @@ class Aircraft:
 #                                                                              #
 ################################################################################
 
-VERSION = "v1.1.0"
+VERSION = "v1.2.0"
 DOOR_CLOSED = 0
 DOOR_OPEN = 1
 MAX_RETRIES = 3
@@ -329,7 +333,8 @@ class GHD:
             xp.sys_log("[ERROR] JarDesign's Ground Handling Deluxe (GHD) is disabled.")
             PythonInterface.handler(Menu.disable)
             return 0
-
+        
+        PythonInterface.handler(FrameRateMonitor.enable)
         cls.reset_data()
 
         if not cls.get_set():
@@ -476,8 +481,11 @@ class AcfSelector:
 
 class AcfMonitor:
     service_on_door_open = Config.get(SETTING_SERVICE_DOOR_OPEN)
+    jetway_connected = False
+    after_land = False
     loading = False
     boarding = 0
+    auto_flight_state_cache = 0
     sim_doors_data_cache = [0] * NUMBER_OF_DOORS
 
     @classproperty
@@ -499,6 +507,10 @@ class AcfMonitor:
     @classproperty
     def beacon_on(cls) -> bool:
         return xp.getDatai(Aircraft.beacon_dataref)
+    
+    @classproperty
+    def auto_flight_state(cls) -> bool:
+        return xp.getDatai(Aircraft.auto_flight)
     
     @classproperty
     def has_builtin_stairs(cls) -> bool:
@@ -528,6 +540,7 @@ class AcfMonitor:
     def reset_data(cls):
         cls.loading = False
         cls.boarding = 0
+        cls.auto_flight_state_cache = 0
         cls.sim_doors_data_cache = [Aircraft.door_closed_value] * NUMBER_OF_DOORS
 
     @classmethod
@@ -561,6 +574,9 @@ class AcfMonitor:
             return
         if name in {STAIRWAY_FWD, STAIRWAY_AFT, BUS, VAN}:
             if cls.near_jetway:
+                if name == STAIRWAY_FWD and not cls.jetway_connected:
+                    xp.commandOnce(cls.toggle_jetway_command)
+                    cls.jetway_connected = True
                 return
             if name == STAIRWAY_FWD and cls.has_builtin_stairs:
                 cls.call_service_crew(GHD.ghd_dependencies[name])
@@ -574,6 +590,9 @@ class AcfMonitor:
     def remove_service_crew(cls, name):
         if name in {STAIRWAY_FWD, STAIRWAY_AFT, BUS, VAN}:
             if cls.near_jetway:
+                if name == STAIRWAY_FWD and cls.jetway_connected:
+                    xp.commandOnce(cls.toggle_jetway_command)
+                    cls.jetway_connected = False
                 return
             if name == STAIRWAY_FWD and cls.has_builtin_stairs:
                 cls.remove_service_crew(GHD.ghd_dependencies[name])
@@ -599,9 +618,27 @@ class AcfMonitor:
         cls.loading = False
         cls.call_service_crew(STAIRWAY_FWD)
         cls.call_service_crew(STAIRWAY_AFT)
-        cls.call_service_crew(BUS)
         cls.remove_service_crew(VAN)
         cls.boarding = 1
+        
+    @classmethod
+    def start_unloading(cls):
+        cls.call_service_crew(CARGO_BELT_FWD)
+        cls.call_service_crew(CARGO_BELT_AFT)
+
+        cls.call_service_crew(STAIRWAY_FWD)
+        cls.call_service_crew(STAIRWAY_AFT)
+        cls.after_land = False
+
+    @classmethod
+    def check_auto_flight_state(cls):
+        auto_flight_state = cls.auto_flight_state
+        cached = cls.auto_flight_state == cls.auto_flight_state_cache
+        if not cached:
+            cls.auto_flight_state_cache = auto_flight_state
+            if auto_flight_state in {1, 3, 4}:
+                cls.jetway_connected = not cls.jetway_connected
+
 
     @classmethod
     def check_doors(cls):
@@ -613,13 +650,14 @@ class AcfMonitor:
             for i, door_status in enumerate(sim_doors_data):
                 if door_status != cls.sim_doors_data_cache[i]:
                     if door_status in {Aircraft.door_closed_value, Aircraft.door_open_value}:
-                        cls.sim_doors_data_cache[i] = door_status
+                        if not (cls.near_jetway and GHD.ghd_by_door[i] == STAIRWAY_FWD and cls.auto_flight_state not in {0, 3}):
+                            cls.sim_doors_data_cache[i] = door_status
 
-                        if cls.service_on_door_open:
-                            if door_status == Aircraft.door_open_value:
-                                cls.call_service_crew(GHD.ghd_by_door[i])
-                        if door_status == Aircraft.door_closed_value:
-                            cls.remove_service_crew(GHD.ghd_by_door[i])
+                            if cls.service_on_door_open:
+                                if door_status == Aircraft.door_open_value:
+                                    cls.call_service_crew(GHD.ghd_by_door[i])
+                            if door_status == Aircraft.door_closed_value:
+                                cls.remove_service_crew(GHD.ghd_by_door[i])
 
     @classmethod
     def flight_loop_callback(cls, sinceLast, elapsedTime, counter, refCon):
@@ -628,9 +666,12 @@ class AcfMonitor:
                 if Aircraft.doors_dataref and Aircraft.not_airstairs_dataref and \
                     Aircraft.loading_dataref and Aircraft.boarding_dataref:
                     if GHD.is_enabled and cls.beacon_on:
-                        GHD.disable()
+                        PythonInterface.handler(GHD.disable)
                     if GHD.is_enabled:
+                        cls.check_auto_flight_state()
                         cls.check_doors()
+                        if cls.after_land:
+                            cls.start_unloading()
                         if not cls.loading and cls.requested_service_crew:
                             cls.start_loading()
                         if not cls.boarding and cls.started_flight_leg:
@@ -639,8 +680,9 @@ class AcfMonitor:
                             cls.remove_service_crew(BUS)
                             cls.boarding == 2
                     elif not cls.beacon_on:
-                        GHD.enable()
-                    PythonInterface.flight_loop_interval = -1 * FrameRateMonitor.frame_rate # Real-time
+                        if not PythonInterface.handler(GHD.enable):
+                            return 0
+                    PythonInterface.flight_loop_interval = -1 * FrameRateMonitor.frame_rate / 2 # 2x Real-time
                 else:
                     xp.sys_log("[WARNING] Identified an issue with the loaded configuration. " + \
                         "Initiating reload attempt.")
@@ -650,6 +692,8 @@ class AcfMonitor:
                 PythonInterface.handler(FrameRateMonitor.disable)
                 PythonInterface.flight_loop_interval = 2 # seconds
         else:
+            if not cls.after_land:
+                cls.after_land = True
             PythonInterface.handler(FrameRateMonitor.disable)
             PythonInterface.flight_loop_interval = 30 # seconds
         return PythonInterface.flight_loop_interval
@@ -659,6 +703,7 @@ class AcfMonitor:
 
     gear_on_ground_dataref = xp.findDataRef('sim/flightmodel2/gear/on_ground')
     engines_is_burning_fuel_dataref = xp.findDataRef('sim/flightmodel2/engines/engine_is_burning_fuel')
+    toggle_jetway_command = xp.findCommand('sim/ground_ops/jetway')
 
 
 class Menu:
