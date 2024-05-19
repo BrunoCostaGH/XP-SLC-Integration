@@ -48,9 +48,5 @@ The AutoGHDforZibo plugin enhances the Zibomod B737 experience by automating JAR
    This plugin provides persistent settings for 'Service on Door Open'.  
   
 ## FAQ  
-  
-**Q**: Why is there a slight delay sometimes when I open a door in the Zibomod B737-800X?  
-**A**: The dataref used to monitor the doors on the Zibomod B737-800X is not a simple open or closed status. When the door is in motion, the dataref holds a value that indicates whether the door is in motion or not. This may prevent AutoGHDforZibo to detect the door movement accurately. At the latest, AutoGHDforZibo will update the value when the door has completed its motion.  
-  
 **Q**: When I arrive at the gate, why don't the services start unloading automatically?  
 **A**: AutoGHDforZibo has a default setting of 'Service on Door Open' set to False. This means that the services won't be called when you open the doors. If you want the services to unload automatically upon arrival at the gate, you will need to turn on this setting.  
