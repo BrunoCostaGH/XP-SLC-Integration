@@ -5,7 +5,7 @@
 #    By: Bruno Costa <support@bybrunocosta.com>      ##  ##    ##              #
 #                                                    ##   ##   ##              #
 #    Created: 2024-03-15T22:08:48.801Z               ##   ##   ##   ##         #
-#    Updated: 2024-05-19T22:59:45.685Z               #####     ####            #
+#    Updated: 2024-05-20T14:14:26.624Z               #####     ####            #
 #                                                                              #
 ################################################################################
 #
@@ -112,7 +112,7 @@ class Aircraft:
 #                                                                              #
 ################################################################################
 
-VERSION = "v1.3.0"
+VERSION = "v1.3.1"
 DOOR_CLOSED = 0
 DOOR_OPEN = 1
 MAX_RETRIES = 3
@@ -166,7 +166,7 @@ class Config:
                 cls,
                 "settings",
                 {
-                    SETTING_SERVICE_DOOR_OPEN: False
+                    SETTING_SERVICE_DOOR_OPEN: True
                 }
             )
         cls.save()
@@ -184,12 +184,13 @@ class Config:
                 deprecated_options = deprecated_config.options(deprecated_section)
                 for deprecated_option in deprecated_options:
                     if deprecated_option == "services on door open":
-                        option = deprecated_config.get(deprecated_section, deprecated_option)
+                        # option = deprecated_config.get(deprecated_section, deprecated_option)
                         setattr(
                             cls,
                             "settings",
                             {
-                                SETTING_SERVICE_DOOR_OPEN: False if option == "False" else True
+                                # SETTING_SERVICE_DOOR_OPEN: False if option == "False" else True
+                                SETTING_SERVICE_DOOR_OPEN: True
                             }
                         )
             cls.save()
@@ -649,6 +650,7 @@ class AcfMonitor:
         if name in {STAIRWAY_FWD, BUS, VAN}:
             if cls.near_jetway:
                 if name == STAIRWAY_FWD and not xp.getDatai(cls.xp_jetway_connected_dataref):
+                    xp.sys_log(f"[INFO] Toggled jetway when calling for {name}.")
                     xp.commandOnce(cls.toggle_jetway_command)
                     xp.setDatai(cls.xp_jetway_connected_dataref, 1)
                 return
@@ -665,6 +667,7 @@ class AcfMonitor:
         if name in {STAIRWAY_FWD, BUS, VAN}:
             if cls.near_jetway:
                 if name == STAIRWAY_FWD and xp.getDatai(cls.xp_jetway_connected_dataref):
+                    xp.sys_log(f"[INFO] Toggled jetway when removing {name}.")
                     xp.commandOnce(cls.toggle_jetway_command)
                     xp.setDatai(cls.xp_jetway_connected_dataref, 0)
                 return
@@ -679,11 +682,10 @@ class AcfMonitor:
         cls.call_service_crew(CATERING_AFT)
         cls.call_service_crew(CARGO_BELT_FWD)
         cls.call_service_crew(CARGO_BELT_AFT)
-
         cls.call_service_crew(STAIRWAY_FWD)
-        cls.call_service_crew(STAIRWAY_AFT)
         cls.call_service_crew(VAN)
         if not cls.near_jetway:
+            cls.call_service_crew(STAIRWAY_AFT)
             cls.remove_service_crew(BUS)
         cls.loading = True
 
@@ -691,8 +693,9 @@ class AcfMonitor:
     def start_boarding(cls):
         cls.loading = False
         cls.call_service_crew(STAIRWAY_FWD)
-        cls.call_service_crew(STAIRWAY_AFT)
         cls.remove_service_crew(VAN)
+        if not cls.near_jetway:
+            cls.call_service_crew(STAIRWAY_AFT)
         cls.boarding = 1
 
     @classmethod
@@ -701,16 +704,20 @@ class AcfMonitor:
         cls.call_service_crew(CARGO_BELT_AFT)
 
         cls.call_service_crew(STAIRWAY_FWD)
-        cls.call_service_crew(STAIRWAY_AFT)
+        if not cls.near_jetway:
+            cls.call_service_crew(STAIRWAY_AFT)
         cls.after_land = False
 
     @classmethod
     def check_auto_flight_state(cls):
         auto_flight_state = cls.auto_flight_state
-        cached = cls.auto_flight_state == cls.auto_flight_state_cache
+        cached = auto_flight_state == cls.auto_flight_state_cache
         if not cached:
+            if cls.auto_flight_state_cache == 1 and auto_flight_state == 2:
+                cls.auto_flight_state_cache = auto_flight_state
+                return
             cls.auto_flight_state_cache = auto_flight_state
-            if auto_flight_state in {1, 3, 4}:
+            if auto_flight_state in {1, 2, 3, 4}:
                 if xp.getDatai(cls.xp_jetway_connected_dataref) == 1:
                     xp.setDatai(cls.xp_jetway_connected_dataref, 0)
                 else:
@@ -789,10 +796,10 @@ class Menu:
         xp.appendMenuItem(cls.id, " Service On Door Open", SETTING_SERVICE_DOOR_OPEN)
 
         xp.checkMenuItem(cls.id, 0, xp.Menu_Checked)
-        if Config.get(f".settings.{SETTING_SERVICE_DOOR_OPEN}") == True:
-            xp.checkMenuItem(cls.id, 2, xp.Menu_Checked)
-        else:
+        if Config.get(f".settings.{SETTING_SERVICE_DOOR_OPEN}") == False:
             xp.checkMenuItem(cls.id, 2, xp.Menu_Unchecked)
+        else:
+            xp.checkMenuItem(cls.id, 2, xp.Menu_Checked)
         return cls.id
 
     @classmethod

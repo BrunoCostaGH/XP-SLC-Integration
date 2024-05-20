@@ -48,25 +48,22 @@ Offset    0x3367    UINT8    1    rw    $XPTKDoorStatus
   
 ## Features  
   
-**Reduced Loop Overhead for Increased Performance:**
-   This plugin optimizes loops during flight or while engines are running, resulting in enhanced performance. It ensures a smoother gaming experience without sacrificing realism.  
+### Performance Optimization  
+**Reduced Loop Overhead:** This plugin enhances overall performance by optimizing loops during flight or engine operation phases.  
   
 > [!NOTE]  
 > A slight delay might occur after the termination of these phases.  
   
-**Multi-Stage Aircraft Detection:**
-   This plugin includes an integrated FPS monitor that provides real-time door monitoring.  
+### Monitoring and Detection  
+**Real-Time Aircraft Monitoring:** An integrated FPS monitor provides real-time updates on aircraft door statuses, ensuring accurate and timely information.  
   
-**Aircraft Detection via Multiple Parameters:**
-   This plugin uses a comprehensive detection system to detect aircraft using parameters such as aircraft plugin, directory, and ICAO code. It ensures accurate identification of aircraft.  
+**Multi-Stage Aircraft Detection:** Utilizes multiple parameters, including aircraft plugin, directory, and ICAO code, for precise and reliable aircraft identification.  
   
-**Interactive Door Handling:**
-   This plugin allows users to interact with aircraft doors through the aircraft's system or manually edit datarefs for door manipulation.  
+### Door Management  
+**Interactive Door Handling:** This plugin allows users to interact with aircraft doors through the aircraft's system or manually edit datarefs for door manipulation. 
   
-**Menu:**
-   This plugin offers a plugin menu that enables users to control activation, and deactivation effortlessly.  
+### Settings and Preferences  
+**Persistent Settings:** The plugin retains user preferences and settings, providing a consistent and personalized experience.  
   
-## FAQ  
-  
-**Q**: Why is there a slight delay sometimes when I open a door in the Zibomod B737-800X?  
-**A**: The dataref used to monitor the doors on the Zibomod B737-800X is not a simple open or closed status. When the door is in motion, the dataref holds a value that indicates whether the door is in motion or not. This may prevent the plugin to detect the door movement accurately. At the latest, the plugin will update the value when the door has completed its motion.  
+## Bug Reports  
+   Please report any bugs you encounter in the comment section below, or at the github repository <https://github.com/BrunoCostaGH/XP-Toolkit>  

@@ -23,30 +23,24 @@ The AutoGHDforZibo plugin enhances the Zibomod B737 experience by automating JAR
   
 ## Features  
   
-**Reduced Loop Overhead for Increased Performance:**
-   This plugin optimizes loops during flight or while engines are running, resulting in enhanced performance. It ensures a smoother gaming experience without sacrificing realism.  
+### Performance Optimization  
+**Reduced Loop Overhead:** This plugin enhances overall performance by optimizing loops during flight or engine operation phases.  
   
 > [!NOTE]  
 > A slight delay might occur after the termination of these phases.  
   
-**Multi-Stage Aircraft Detection:**
-   This plugin includes an integrated FPS monitor that provides real-time door monitoring.  
+### Monitoring and Detection  
+**Real-Time Aircraft Monitoring:** An integrated FPS monitor provides real-time updates on aircraft door statuses, ensuring accurate and timely information.  
   
-**Aircraft Detection via Multiple Parameters:**
-   This plugin uses a comprehensive detection system to detect aircraft using parameters such as aircraft plugin, directory, and ICAO code. It ensures accurate identification of aircraft.  
+**Multi-Stage Aircraft Detection:** Utilizes multiple parameters, including aircraft plugin, directory, and ICAO code, for precise and reliable aircraft identification.  
   
-**Interactive Door Handling:**
-   This plugin allows users to interact with aircraft doors through the aircraft's system or manually edit datarefs for door manipulation.  
+### Service Management  
+**Automatic Stage Management:** Automatically manages service calls when 'Start Service Crews On Ground' and 'Start Flight Leg' options are selected.  
+   
+**Automated Service Activation:** The plugin automatically calls ground services when doors are opened, streamlining the loading and boarding processes.  
   
-**Menu:**
-   This plugin offers a plugin menu that enables users to control activation, deactivation, and the option to select 'Service on Door Open' effortlessly. 
+### Settings and Preferences  
+**Persistent Settings:** The plugin retains user preferences and settings, providing a consistent and personalized experience.  
   
-**Service on Door Open:**
-   This plugin enables vehicles to be called on door open for loading and boarding instead of restricting the use of 'Start Service Crews On Ground' and 'Start Flight Leg', respectively.  
-  
-**Persistent Settings:**
-   This plugin provides persistent settings for 'Service on Door Open'.  
-  
-## FAQ  
-**Q**: When I arrive at the gate, why don't the services start unloading automatically?  
-**A**: AutoGHDforZibo has a default setting of 'Service on Door Open' set to False. This means that the services won't be called when you open the doors. If you want the services to unload automatically upon arrival at the gate, you will need to turn on this setting.  
+## Bug Reports  
+   Please report any bugs you encounter in the comment section below, or at the github repository <https://github.com/BrunoCostaGH/XP-Toolkit>  
