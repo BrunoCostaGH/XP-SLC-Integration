@@ -1,8 +1,8 @@
 ---
-name: Bug report
-about: Create a report to help us improve
-title: ''
-labels: ''
+name: AutoGHDforZibo Bug report
+about: Report a bug within AutoGHDforZibo plugin
+title: "[AutoGHDforZibo]"
+labels: bug
 assignees: ''
 
 ---
