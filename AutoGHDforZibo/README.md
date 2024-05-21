@@ -9,7 +9,6 @@ The AutoGHDforZibo plugin enhances the Zibomod B737 experience by automating JAR
 - [X-Plane 12](https://www.x-plane.com/)  `v12.0.9-rc-5`  
 - [XPPython3](https://xppython3.readthedocs.io/en/latest/)  `v4.2.1 for Python 3.12`  
 - [JARDesign's GHD](https://main.jardesign.org/GHD.html)  `v.5_130922_XP12`  
-- [XPUIPC](https://www.schiratti.com/xpuipc.html)  `v2.0.3.8`  
   
 > [!NOTE]  
 > The use of outdated or mismatched versions may affect AutoGHDforZibo's functionality due to changes in datarefs.  
