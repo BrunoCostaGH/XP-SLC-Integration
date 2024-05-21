@@ -28,6 +28,7 @@ If applicable, add screenshots to help explain your problem.
  - X-Plane Version: [e.g. X-Plane 12 v12.0.9-rc-5]
  - XPPython3 Version: [e.g. v4.2.1 for Python 3.12]
  - XPUIPC Version: [e.g. v2.0.3.8]
+ - Aircraft Version: [e.g. Zibomod B738 v4.01]
 
 **Additional context**
 Add any other context about the problem here.
