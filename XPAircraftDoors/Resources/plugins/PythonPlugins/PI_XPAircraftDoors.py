@@ -5,7 +5,7 @@
 #    By: Bruno Costa <support@bybrunocosta.com>      ##  ##    ##              #
 #                                                    ##   ##   ##              #
 #    Created: 2024-03-03T22:19:19.368Z               ##   ##   ##   ##         #
-#    Updated: 2024-05-12T14:41:47.080Z               #####     ####            #
+#    Updated: 2024-06-06T14:26:22.575Z               #####     ####            #
 #                                                                              #
 ################################################################################
 #
@@ -38,10 +38,10 @@ class B738:
         Aircraft.door_closed_value = 2 # Door closed value
 
         # Dataref containing int array with door statuses
-        Aircraft.doors_dataref = xp.findDataRef('laminar/B738/doors/status')
+        setattr(Aircraft, "doors_dataref", xp.findDataRef('laminar/B738/doors/status'))
 
         # Datarefs containing command to open doors. Must be in order.
-        Aircraft.door_commands_open = [
+        Aircraft.door_command_open_datarefs = [
             'sim/flight_controls/door_open_1', 
             'sim/flight_controls/door_open_5',
             'sim/flight_controls/door_open_9',
@@ -53,7 +53,7 @@ class B738:
         ]
 
         # Datarefs containing command to close doors. Must be in order.
-        Aircraft.door_commands_close = [
+        Aircraft.door_command_close_datarefs = [
             'sim/flight_controls/door_close_1',
             'sim/flight_controls/door_close_5',
             'sim/flight_controls/door_close_9',
@@ -86,14 +86,28 @@ class Laminar:
     @staticmethod
     def laminar():
         Aircraft.configuration_name = "Laminar Research"
+
         Aircraft.door_open_value = 1 # Door open value
         Aircraft.door_closed_value = 0 # Door closed value
-
         # Dataref containing int array with door statuses
-        Aircraft.doors_dataref = xp.findDataRef('sim/flightmodel2/misc/door_open_ratio')
+        setattr(Aircraft, "doors_dataref", xp.findDataRef('sim/flightmodel2/misc/door_open_ratio'))
+        
+        # Aircraft.door_open_value = 0 # Door open value
+        # Aircraft.door_closed_value = -1 # Door closed value
+        # # Datarefs containing door status
+        # door_datarefs = []
+        # door_datarefs.append(xp.findDataRef("laminar/A333/ECAM/doors/slide1"))
+        # door_datarefs.append(xp.findDataRef("laminar/A333/ECAM/doors/slide2"))
+        # door_datarefs.append(xp.findDataRef("laminar/A333/ECAM/doors/slide3"))
+        # door_datarefs.append(xp.findDataRef("laminar/A333/ECAM/doors/slide4"))
+        # door_datarefs.append(xp.findDataRef("laminar/A333/ECAM/doors/slide5"))
+        # door_datarefs.append(xp.findDataRef("laminar/A333/ECAM/doors/slide6"))
+        # door_datarefs.append(xp.findDataRef("laminar/A333/ECAM/doors/slide7"))
+        # door_datarefs.append(xp.findDataRef("laminar/A333/ECAM/doors/slide8"))
+        # setattr(Aircraft, "door_datarefs", door_datarefs)
 
         # Datarefs containing command to open doors. Must be in order.
-        Aircraft.door_commands_open = [
+        Aircraft.door_command_open_datarefs = [
             'sim/flight_controls/door_open_1', 
             'sim/flight_controls/door_open_2',
             'sim/flight_controls/door_open_3',
@@ -105,7 +119,7 @@ class Laminar:
         ]
 
         # Datarefs containing command to close doors. Must be in order.
-        Aircraft.door_commands_close = [
+        Aircraft.door_command_close_datarefs = [
             'sim/flight_controls/door_close_1',
             'sim/flight_controls/door_close_2',
             'sim/flight_controls/door_close_3',
@@ -129,11 +143,10 @@ class Laminar:
 
 class Aircraft:
     configuration_name = None
-    doors_dataref = None
     door_open_value = 0
     door_closed_value = 0
-    door_commands_open = []
-    door_commands_close = []
+    door_command_open_datarefs = []
+    door_command_close_datarefs = []
 
     supported_acf = {
         "Laminar": Laminar.dispatch,
@@ -150,16 +163,17 @@ class Aircraft:
 #                                                                              #
 ################################################################################
 
-VERSION = "v1.2.2"
+__version__ = "v1.3.0"
+
+import xp, os
+
 DOOR_CLOSED = 0
 DOOR_OPEN = 1
 MAX_RETRIES = 3
 NUMBER_OF_DOORS = 8
 DEFAULT_FLIGHT_LOOP_INTERVAL = -1
 
-XP_DOORS_DATAREF_NAME = "xptk/doors/status"
-
-import xp, os
+XPTK_DOORS_STATUS_DATAREF_NAME = "xptk/doors/status"
 
 
 class classproperty(property):
@@ -261,11 +275,33 @@ class AcfSelector:
         is_supported_addon_acf = acf_icao in Aircraft.supported_acf and \
                                     Aircraft.supported_acf[acf_icao](acf_dir)
         if is_supported_laminar_acf or is_supported_addon_acf:
-            if Aircraft.doors_dataref:
-                xp.sys_log("[INFO] '" + Aircraft.configuration_name + "' configuration loaded.")
+            invalid_dataref = False
+            for attr_name, attr_value in vars(Aircraft).items():
+                if attr_name.endswith("_dataref") and not callable(attr_value):
+                    if attr_value is None:
+                        invalid_dataref = True
+                        xp.sys_log(f"[WARNING] Unable to find {attr_name} dataref for {Aircraft.configuration_name}.")
+                elif attr_name.endswith("_datarefs") and not callable(attr_value):
+                    if isinstance(attr_value, dict):
+                        for key, value in attr_value.items():
+                            if not value:
+                                invalid_dataref = True
+                                xp.sys_log(f"[WARNING] Invalid dataref found in {Aircraft.configuration_name}'s {attr_name} at {key}.")
+                    else:
+                        for index, value in enumerate(attr_value):
+                            if index == NUMBER_OF_DOORS:
+                                invalid_dataref = True
+                                xp.sys_log(f"[WARNING] Dataref limit reached in {Aircraft.configuration_name}'s {attr_name}. \
+                                           Max datarefs size is: {str(NUMBER_OF_DOORS)}.")
+                                break
+                            elif not value:
+                                invalid_dataref = True
+                                xp.sys_log(f"[WARNING] Invalid dataref found in {Aircraft.configuration_name}'s {attr_name} at {index}.")
+            if not invalid_dataref and (hasattr(Aircraft, "doors_dataref") or hasattr(Aircraft, "door_datarefs")):
+                xp.sys_log(f"[INFO] '{Aircraft.configuration_name}' configuration loaded.")
+                return 1
             else:
-                xp.sys_log("[WARNING] '" + Aircraft.configuration_name + "' configuration loaded, with errors")
-            return 1
+                xp.sys_log(f"[WARNING] Identified an issue with '{Aircraft.configuration_name}' configuration. Retrying to load configuration.")
         return 0
 
     @classmethod
@@ -296,7 +332,7 @@ class AcfSelector:
 
 
 class AcfMonitor:
-    xp_doors_data_cache = 0
+    xptk_doors_status_data_cache = 0
     sim_doors_data_cache = [0] * NUMBER_OF_DOORS
 
     @classproperty
@@ -313,7 +349,7 @@ class AcfMonitor:
 
     @classmethod
     def reset_data(cls):
-        cls.xp_doors_data_cache = 0
+        cls.xptk_doors_status_data_cache = 0
         cls.sim_doors_data_cache = [Aircraft.door_closed_value] * NUMBER_OF_DOORS
 
     @classmethod
@@ -342,28 +378,27 @@ class AcfMonitor:
     def flight_loop_callback(cls, sinceLast, elapsedTime, counter, refCon):
         if cls.on_ground:
             if not cls.engines_running:
-                if Aircraft.doors_dataref:
-                    PythonInterface.handler(FrameRateMonitor.enable)
+                PythonInterface.handler(FrameRateMonitor.enable)
 
-                    sim_doors_data = []
-                    xp.getDatavi(Aircraft.doors_dataref, sim_doors_data, count=NUMBER_OF_DOORS)
+                sim_doors_data = []
+                if hasattr(Aircraft, "doors_dataref"):
+                    xp.getDatavi(getattr(Aircraft, "doors_dataref"), sim_doors_data, count=NUMBER_OF_DOORS)
+                elif hasattr(Aircraft, "door_datarefs"):
+                    door_datarefs = getattr(Aircraft, "door_datarefs")
+                    for dataref in door_datarefs:
+                        sim_doors_data.append(xp.getDatai(dataref))
 
-                    cached = sim_doors_data == cls.sim_doors_data_cache
-                    if not cached:
-                        xp_doors_data = cls.xp_doors_data_cache
-                        for i, door_status in enumerate(sim_doors_data):
-                            if door_status != cls.sim_doors_data_cache[i]:
-                                if door_status in {Aircraft.door_closed_value, Aircraft.door_open_value}:
-                                    cls.sim_doors_data_cache[i] = door_status
-                                    xp_doors_data = Utils.set_bit_at_index(xp_doors_data, door_status, i)
-                                    xp.setDatai(cls.xp_doors_dataref, xp_doors_data)
-                                    cls.xp_doors_data_cache = xp_doors_data
-                    PythonInterface.flight_loop_interval = -1 * FrameRateMonitor.frame_rate / 2 # 2x Real-time
-                else:
-                    xp.sys_log("[WARNING] Identified an issue with the loaded configuration. " + \
-                        "Initiating reload attempt.")
-                    PythonInterface.handler(AcfSelector.enable)
-                    PythonInterface.flight_loop_interval = 0 # seconds
+                cached = sim_doors_data == cls.sim_doors_data_cache
+                if not cached:
+                    xptk_doors_status_data = cls.xptk_doors_status_data_cache
+                    for i, door_status in enumerate(sim_doors_data):
+                        if door_status != cls.sim_doors_data_cache[i]:
+                            if door_status in {Aircraft.door_closed_value, Aircraft.door_open_value}:
+                                cls.sim_doors_data_cache[i] = door_status
+                                xptk_doors_status_data = Utils.set_bit_at_index(xptk_doors_status_data, door_status, i)
+                                xp.setDatai(cls.xptk_doors_status_dataref, xptk_doors_status_data)
+                                cls.xptk_doors_status_data_cache = xptk_doors_status_data
+                PythonInterface.flight_loop_interval = -1 * FrameRateMonitor.frame_rate / 2 # 2x Real-time
             else:
                 PythonInterface.handler(FrameRateMonitor.disable)
                 PythonInterface.flight_loop_interval = 2 # seconds
@@ -374,7 +409,7 @@ class AcfMonitor:
 
     flight_loop = flight_loop_callback
     flight_loop_id = None
-    xp_doors_dataref = None
+    xptk_doors_status_dataref = None
 
     gear_on_ground_dataref = xp.findDataRef('sim/flightmodel2/gear/on_ground')
     engines_is_burning_fuel_dataref = xp.findDataRef('sim/flightmodel2/engines/engine_is_burning_fuel')
@@ -392,7 +427,7 @@ class Menu:
     def create(cls):
         cls.id = xp.createMenu('XPAircraftDoors', handler=cls.callback)
         xp.appendMenuItem(cls.id, ' Enabled', 'enabled')
-        xp.checkMenuItem(cls.id, 0, xp.Menu_Checked)
+        xp.checkMenuItem(cls.id, 0, xp.Menu_Unchecked)
         return cls.id
 
     @classmethod
@@ -406,12 +441,17 @@ class Menu:
             xp.sys_log("[ERROR] Unable to create Plugin's menu.")
             return 0
 
-        if AcfSelector.acf_icao_dataref is None or \
-            AcfMonitor.gear_on_ground_dataref is None or \
-            AcfMonitor.engines_is_burning_fuel_dataref is None or\
-            AcfMonitor.xp_doors_dataref is None:
-            xp.sys_log("[ERROR] Essential XP12 datarefs not found.")
-            return 0
+        for attr_name, attr_value in vars(AcfSelector).items():
+            if attr_name.endswith("_dataref") and not callable(attr_value):
+                if attr_value is None:
+                    xp.sys_log(f"[ERROR] Unable to find {attr_name} dataref.")
+                    return 0
+
+        for attr_name, attr_value in vars(AcfMonitor).items():
+            if attr_name.endswith("_dataref") and not callable(attr_value):
+                if attr_value is None:
+                    xp.sys_log(f"[ERROR] Unable to find {attr_name} dataref.")
+                    return 0
         
         xpuipc_plugin_id = xp.findPluginBySignature('XPUIPC/XPWideFS.')
 
@@ -439,15 +479,15 @@ class Menu:
 
 
 class PythonInterface:
-    acf_doors = 0
+    xptk_doors_status = 0
 
     def read_xp_acf_doors(self, read_ref_con):
-        return self.acf_doors
+        return self.xptk_doors_status
 
     def write_xp_acf_doors(self, write_ref_con, value):
         if AcfMonitor.on_ground:
-            self.acf_doors = value
-            AcfMonitor.xp_doors_data_cache = value
+            self.xptk_doors_status = value
+            AcfMonitor.xptk_doors_status_data_cache = value
 
             # Runs command to open or close sim door based on xptk/doors/status
             for i in range(NUMBER_OF_DOORS):
@@ -458,18 +498,18 @@ class PythonInterface:
                 if (xp_door_status == DOOR_CLOSED and sim_door_open) or \
                     (xp_door_status == DOOR_OPEN and not sim_door_open):
                     if xp_door_status == DOOR_CLOSED:
-                        sim_command = xp.findCommand(Aircraft.door_commands_close[i])
+                        sim_command = xp.findCommand(Aircraft.door_command_close_datarefs[i])
                         if sim_command is None:
-                            self.acf_doors = Utils.set_bit_at_index(self.acf_doors, Aircraft.door_open_value, i)
-                            AcfMonitor.xp_doors_data_cache = self.acf_doors
+                            self.xptk_doors_status = Utils.set_bit_at_index(self.xptk_doors_status, Aircraft.door_open_value, i)
+                            AcfMonitor.xptk_doors_status_data_cache = self.xptk_doors_status
                         else:
                             xp.commandOnce(sim_command)
                             AcfMonitor.sim_doors_data_cache[i] = Aircraft.door_closed_value
                     else:
-                        sim_command = xp.findCommand(Aircraft.door_commands_open[i])
+                        sim_command = xp.findCommand(Aircraft.door_command_open_datarefs[i])
                         if sim_command is None or AcfMonitor.engines_running:
-                            self.acf_doors = Utils.set_bit_at_index(self.acf_doors, Aircraft.door_closed_value, i)
-                            AcfMonitor.xp_doors_data_cache = self.acf_doors
+                            self.xptk_doors_status = Utils.set_bit_at_index(self.xptk_doors_status, Aircraft.door_closed_value, i)
+                            AcfMonitor.xptk_doors_status_data_cache = self.xptk_doors_status
                         else:
                             xp.commandOnce(sim_command)
                             AcfMonitor.sim_doors_data_cache[i] = Aircraft.door_open_value
@@ -483,7 +523,7 @@ class PythonInterface:
         self.Sig = "xpaircraftdoors.xppython3"
         self.Desc = "Translate XP Aircrafts door data to XPUIPC offset"
 
-        self.xp_doors_accessor = None
+        self.xptk_doors_status_accessor = None
         self.flight_loop_interval = DEFAULT_FLIGHT_LOOP_INTERVAL
 
     def XPluginStart(self):
@@ -491,12 +531,12 @@ class PythonInterface:
         # Called once by X-Plane on startup (or when plugins are re-starting as part of reload)
         # You need to return three strings
 
-        self.xp_doors_accessor = xp.registerDataAccessor(
-                    XP_DOORS_DATAREF_NAME, 
+        self.xptk_doors_status_accessor = xp.registerDataAccessor(
+                    XPTK_DOORS_STATUS_DATAREF_NAME, 
                     readInt=self.read_xp_acf_doors,
                     writeInt=self.write_xp_acf_doors
                 )
-        setattr(AcfMonitor, "xp_doors_dataref", xp.findDataRef(XP_DOORS_DATAREF_NAME))
+        setattr(AcfMonitor, "xptk_doors_status_dataref", xp.findDataRef(XPTK_DOORS_STATUS_DATAREF_NAME))
         Menu.create()
         return self.Name, self.Sig, self.Desc
 
@@ -504,7 +544,7 @@ class PythonInterface:
         # Called once by X-Plane on quit (or when plugins are exiting as part of reload)
         # Return is ignored
 
-        xp.unregisterDataAccessor(self.xp_doors_accessor)
+        xp.unregisterDataAccessor(self.xptk_doors_status_accessor)
         Menu.destroy()
 
     def XPluginEnable(self):
