@@ -5,7 +5,7 @@
 #    By: Bruno Costa <support@bybrunocosta.com>      ##  ##    ##              #
 #                                                    ##   ##   ##              #
 #    Created: 2024-03-03T22:19:19.368Z               ##   ##   ##   ##         #
-#    Updated: 2024-06-06T14:26:22.575Z               #####     ####            #
+#    Updated: 2024-10-10T19:39:26.707Z               #####     ####            #
 #                                                                              #
 ################################################################################
 #
@@ -163,7 +163,7 @@ class Aircraft:
 #                                                                              #
 ################################################################################
 
-__version__ = "v1.3.0"
+__version__ = "v1.3.1"
 
 import xp, os
 
@@ -426,7 +426,7 @@ class Menu:
     @classmethod
     def create(cls):
         cls.id = xp.createMenu('XPAircraftDoors', handler=cls.callback)
-        xp.appendMenuItem(cls.id, ' Enabled', 'enabled')
+        xp.appendMenuItem(cls.id, 'Enabled', 'enabled')
         xp.checkMenuItem(cls.id, 0, xp.Menu_Unchecked)
         return cls.id
 
@@ -469,6 +469,11 @@ class Menu:
         AcfSelector.disable()
         FrameRateMonitor.disable()
         xp.checkMenuItem(cls.id, 0, xp.Menu_Unchecked)
+
+    @classmethod
+    def reload(cls):
+        cls.disable()
+        cls.enable()
 
     @classmethod
     def callback(cls, menuRefCon, itemRefCon):
@@ -568,4 +573,7 @@ class PythonInterface:
         # Messages may be custom inter-plugin messages, as defined by other plugins.
         # Return is ignored
         if (inMessage == xp.MSG_PLANE_LOADED):
-            AcfSelector.reload()
+            if Menu.is_enabled:
+                Menu.reload()
+            else:
+                Menu.enable()
