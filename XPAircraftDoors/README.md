@@ -6,18 +6,18 @@ The XP Aircraft Doors plugin facilitates seamless integration between X-Plane 12
   
 ## Requirements  
   
-- [X-Plane 12](https://www.x-plane.com/)  `v12.0.9-rc-5`  
-- [XPPython3](https://xppython3.readthedocs.io/en/latest/)  `v4.2.1 for Python 3.12`  
+- [X-Plane 12](https://www.x-plane.com/)  `v12.1.2`  
+- [XPPython3](https://xppython3.readthedocs.io/en/latest/)  `v4.4.1`  
 - [XPUIPC](https://www.schiratti.com/xpuipc.html)  `v2.0.3.8`  
   
 > [!NOTE]  
-> The use of outdated or mismatched versions may affect XP Aircraft Doors's functionality due to changes in datarefs.  
+> The use of outdated or mismatched versions may affect XP Aircraft Doors's functionality due to possible changes in datarefs.  
   
 ### Supported Aircrafts  
  - Laminar Research A330-3  
  - Laminar Research B737-8  
    
- - [Zibomod B737-800X](https://forums.x-plane.org/index.php?/forums/forum/384-zibo-b738-800-modified/) `v4.01`  
+ - [Zibomod B737-800X](https://forums.x-plane.org/index.php?/forums/forum/384-zibo-b738-800-modified/) `v4.02`  
   
 ### Self-Loading Cargo Cabin Layouts  
 > [!NOTE]  
